@@ -2,18 +2,37 @@ name: Chirp AI Background Sync
 
 # Pings the Chirp AI cron endpoint so meetings are auto-detected, bots are
 # auto-sent, and transcripts are fetched WITHOUT anyone being logged in.
-# Runs on a public repo → free unlimited GitHub Actions minutes.
+#
+# ─────────────────────────────────────────────────────────────────────────
+#  ON/OFF SWITCH:  set SYNC_ENABLED to "true" to resume background sync.
+#  It is "false" right now, so the scheduled job is skipped and uses NO
+#  GitHub Actions credits. (The workflow is also disabled in the Actions tab.)
+# ─────────────────────────────────────────────────────────────────────────
+
+env:
+  SYNC_ENABLED: "false" # <-- flip to "true" to turn background sync back on
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (GitHub may delay under load)
-  workflow_dispatch: {}       # allow manual run from the Actions tab
+    - cron: "*/5 * * * *" # every 5 minutes (only runs when SYNC_ENABLED=true)
+  workflow_dispatch: {} # manual run from the Actions tab (also gated below)
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Check kill switch
+        id: gate
+        run: |
+          if [ "${SYNC_ENABLED}" != "true" ]; then
+            echo "Background sync is DISABLED (SYNC_ENABLED=${SYNC_ENABLED}). Skipping."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Trigger Chirp AI sync
+        if: steps.gate.outputs.enabled == 'true'
         run: |
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" \
             -X POST "${{ secrets.CRON_URL }}" \
