@@ -1,0 +1,23 @@
+name: Chirp AI Background Sync
+
+# Pings the Chirp AI cron endpoint so meetings are auto-detected, bots are
+# auto-sent, and transcripts are fetched WITHOUT anyone being logged in.
+# Runs on a public repo → free unlimited GitHub Actions minutes.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes (GitHub may delay under load)
+  workflow_dispatch: {}       # allow manual run from the Actions tab
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Chirp AI sync
+        run: |
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" \
+            -X POST "${{ secrets.CRON_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"
+          cat /tmp/out.json || true
+          if [ "$code" != "200" ]; then exit 1; fi
